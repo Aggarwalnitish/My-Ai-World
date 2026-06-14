@@ -14,12 +14,17 @@ const SUPPORTS_ADAPTIVE_THINKING = /^claude-(opus-4-(6|7|8)|sonnet-4-6|fable-5)/
 
 const client = hasAI ? new Anthropic() : null;
 
-// Anthropic server tools: search the web and fetch page content.
-// `allowed_callers: ["direct"]` disables programmatic (code-driven) tool calling,
-// which lighter models like Haiku 4.5 don't support — they call the tools directly.
+// Web search only (no web_fetch — full-page fetches are the biggest token cost;
+// search snippets are enough for crisp summaries). `allowed_callers: ["direct"]`
+// disables programmatic tool calling, which Haiku 4.5 doesn't support.
+// `max_uses` caps the number of searches (each search is billed).
 const WEB_TOOLS = [
-  { type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] },
-  { type: "web_fetch_20260209", name: "web_fetch", allowed_callers: ["direct"] },
+  {
+    type: "web_search_20260209",
+    name: "web_search",
+    allowed_callers: ["direct"],
+    max_uses: 3,
+  },
 ];
 
 function textOf(content: Anthropic.ContentBlock[]): string {
@@ -32,7 +37,7 @@ function textOf(content: Anthropic.ContentBlock[]): string {
 function researchParams(messages: Anthropic.MessageParam[]): Record<string, unknown> {
   const params: Record<string, unknown> = {
     model: MODEL,
-    max_tokens: 8000,
+    max_tokens: 1200,
     tools: WEB_TOOLS,
     messages,
   };
@@ -63,7 +68,7 @@ async function structure<T>(prompt: string, schema: object): Promise<T | null> {
   if (!client) throw new Error("AI not configured");
   const res = await client.messages.create({
     model: MODEL,
-    max_tokens: 2000,
+    max_tokens: 700,
     messages: [{ role: "user", content: prompt }],
     // output_config is newer than the pinned SDK types — cast through.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,21 +109,20 @@ const TOOL_SCHEMA = {
 
 export async function enrichTool(rawInput: string): Promise<EnrichedTool | null> {
   const findings = await research(
-    `You are helping catalog AI tools. Research this AI tool and report what you find.\n\n` +
-      `Tool (name or URL): ${rawInput}\n\n` +
-      `Use web search and web fetch to locate the official website and understand the product. ` +
-      `Report: the official name, official homepage URL, what it does, who it's for, key features, ` +
-      `and pricing model if available. End your report with a line "SOURCES:" listing the URLs you used.`,
+    `Research this AI tool and report concisely.\n` +
+      `Tool (name or URL): ${rawInput}\n` +
+      `Use web search to find the official site and what it does. In under 80 words give: ` +
+      `official name, homepage URL, what it does, who it's for, and pricing if known. ` +
+      `End with a line "SOURCES:" listing the URLs used.`,
   );
 
   return structure<EnrichedTool>(
-    `Based on the research below about an AI tool, produce structured catalog data.\n\n` +
-      `Pick the single best category from this list; only invent a new short category name if none fit:\n` +
-      `${CATEGORIES.join(", ")}\n\n` +
-      `Raw user input: ${rawInput}\n\nResearch:\n${findings}\n\n` +
-      `Return JSON with: name (official name), url (official homepage, or "" if unknown), ` +
-      `summary (one punchy sentence on what it does), details (2-4 sentences), ` +
-      `category (best fit), tags (3-6 lowercase keywords).`,
+    `Turn the research below into compact catalog data.\n` +
+      `Pick the single best category (invent a short new one only if none fit): ${CATEGORIES.join(", ")}\n\n` +
+      `Input: ${rawInput}\nResearch:\n${findings}\n\n` +
+      `Return JSON: name (official name); url (homepage or ""); ` +
+      `summary (ONE crisp sentence, max ~18 words); details (1-2 short sentences, max ~40 words); ` +
+      `category; tags (3-5 lowercase keywords).`,
     TOOL_SCHEMA,
   );
 }
@@ -151,22 +155,22 @@ export async function explainConcept(
   userNotes?: string,
 ): Promise<EnrichedNote | null> {
   const findings = await research(
-    `Research this concept/term and explain it clearly: "${title}".\n\n` +
-      `Use web search to find authoritative, up-to-date explanations. Cover what it is, why it ` +
-      `matters, and the key points someone should know. End with a line "SOURCES:" listing the URLs you used.`,
+    `Research and explain this concept concisely: "${title}".\n` +
+      `Use web search for authoritative, current info. In under 120 words cover what it is, ` +
+      `why it matters, and the key points. End with a line "SOURCES:" listing the URLs used.`,
   );
 
   const notesContext = userNotes
-    ? `\n\nThe user also wrote these personal notes (for context only, do not copy them): ${userNotes}`
+    ? ` The user's own note (context only, don't copy it): ${userNotes}`
     : "";
 
   return structure<EnrichedNote>(
-    `Based on the research below about the concept "${title}", produce structured data.${notesContext}\n\n` +
-      `Pick the single best category from this list; only invent a new short one if none fit:\n` +
-      `${CATEGORIES.join(", ")}\n\nResearch:\n${findings}\n\n` +
-      `Return JSON with: aiSummary (a clear 2-4 paragraph explainer in markdown), ` +
-      `keyPoints (3-6 concise bullet strings), sources (the URLs from the research), ` +
-      `category (best fit), tags (3-6 lowercase keywords).`,
+    `Turn the research below into compact data about "${title}".${notesContext}\n` +
+      `Pick the single best category (invent a short new one only if none fit): ${CATEGORIES.join(", ")}\n\n` +
+      `Research:\n${findings}\n\n` +
+      `Return JSON: aiSummary (a tight explainer in markdown, max ~120 words, 1-2 short paragraphs); ` +
+      `keyPoints (3-4 short bullets); sources (URLs from the research); ` +
+      `category; tags (3-5 lowercase keywords).`,
     NOTE_SCHEMA,
   );
 }
@@ -179,12 +183,12 @@ export async function buildDigest(lines: string[], rangeLabel: string): Promise<
   try {
     const res = await client.messages.create({
       model: MODEL,
-      max_tokens: 1000,
+      max_tokens: 250,
       messages: [
         {
           role: "user",
           content:
-            `Write a brief, upbeat 2-3 sentence digest of what I added to my AI knowledge tracker ${rangeLabel}. ` +
+            `Write a crisp, upbeat 2-sentence digest of what I added to my AI tracker ${rangeLabel}. ` +
             `Group the themes naturally. Items:\n${lines.join("\n")}`,
         },
       ],
