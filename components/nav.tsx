@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Wrench,
   Lightbulb,
   BarChart3,
   Sparkles,
-  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,13 +20,6 @@ const LINKS = [
 
 export function Nav() {
   const pathname = usePathname();
-  const router = useRouter();
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-    router.refresh();
-  }
 
   return (
     <nav className="flex h-full flex-col gap-1 p-3">
@@ -59,14 +51,6 @@ export function Nav() {
           );
         })}
       </div>
-
-      <button
-        onClick={logout}
-        className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-      >
-        <LogOut className="h-4 w-4" />
-        Log out
-      </button>
     </nav>
   );
 }

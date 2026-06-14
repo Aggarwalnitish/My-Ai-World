@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma, hasDatabase } from "@/lib/db";
-import { isAuthenticated } from "@/lib/auth";
 
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   if (!hasDatabase) {
     return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }
@@ -21,9 +17,6 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   if (!hasDatabase) {
     return NextResponse.json({ error: "Database not configured." }, { status: 503 });
   }

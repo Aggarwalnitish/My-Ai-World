@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
 import { hasAI, buildDigest } from "@/lib/ai";
 
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   if (!hasAI) {
     return NextResponse.json({ error: "AI not configured." }, { status: 503 });
   }

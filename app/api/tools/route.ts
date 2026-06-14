@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma, hasDatabase } from "@/lib/db";
-import { isAuthenticated } from "@/lib/auth";
 import { hasAI, enrichTool } from "@/lib/ai";
 
 // AI research + structuring can take 10-40s — give the function room.
@@ -21,18 +20,12 @@ function deriveName(raw: string): string {
 }
 
 export async function GET() {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   if (!hasDatabase) return NextResponse.json({ tools: [] });
   const tools = await prisma.tool.findMany({ orderBy: { createdAt: "desc" } });
   return NextResponse.json({ tools });
 }
 
 export async function POST(request: Request) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   if (!hasDatabase) {
     return NextResponse.json(
       { error: "Database not configured (set DATABASE_URL)." },

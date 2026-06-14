@@ -1,23 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma, hasDatabase } from "@/lib/db";
-import { isAuthenticated } from "@/lib/auth";
 import { hasAI, explainConcept } from "@/lib/ai";
 
 export const maxDuration = 60;
 
 export async function GET() {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   if (!hasDatabase) return NextResponse.json({ notes: [] });
   const notes = await prisma.note.findMany({ orderBy: { createdAt: "desc" } });
   return NextResponse.json({ notes });
 }
 
 export async function POST(request: Request) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   if (!hasDatabase) {
     return NextResponse.json(
       { error: "Database not configured (set DATABASE_URL)." },
