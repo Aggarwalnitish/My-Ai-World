@@ -14,11 +14,12 @@ const SUPPORTS_ADAPTIVE_THINKING = /^claude-(opus-4-(6|7|8)|sonnet-4-6|fable-5)/
 
 const client = hasAI ? new Anthropic() : null;
 
-// Anthropic server tools: search the web and fetch page content. These versions
-// support dynamic filtering and need no beta header.
+// Anthropic server tools: search the web and fetch page content.
+// `allowed_callers: ["direct"]` disables programmatic (code-driven) tool calling,
+// which lighter models like Haiku 4.5 don't support — they call the tools directly.
 const WEB_TOOLS = [
-  { type: "web_search_20260209", name: "web_search" },
-  { type: "web_fetch_20260209", name: "web_fetch" },
+  { type: "web_search_20260209", name: "web_search", allowed_callers: ["direct"] },
+  { type: "web_fetch_20260209", name: "web_fetch", allowed_callers: ["direct"] },
 ];
 
 function textOf(content: Anthropic.ContentBlock[]): string {
@@ -58,7 +59,7 @@ async function research(prompt: string): Promise<string> {
 }
 
 /** Step 2: turn the findings into validated JSON via structured outputs. */
-async function structure<T>(prompt: string, schema: object, name: string): Promise<T | null> {
+async function structure<T>(prompt: string, schema: object): Promise<T | null> {
   if (!client) throw new Error("AI not configured");
   const res = await client.messages.create({
     model: MODEL,
@@ -66,7 +67,7 @@ async function structure<T>(prompt: string, schema: object, name: string): Promi
     messages: [{ role: "user", content: prompt }],
     // output_config is newer than the pinned SDK types — cast through.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    output_config: { format: { type: "json_schema", name, schema } },
+    output_config: { format: { type: "json_schema", schema } },
   } as any);
   const text = textOf(res.content);
   try {
@@ -119,7 +120,6 @@ export async function enrichTool(rawInput: string): Promise<EnrichedTool | null>
       `summary (one punchy sentence on what it does), details (2-4 sentences), ` +
       `category (best fit), tags (3-6 lowercase keywords).`,
     TOOL_SCHEMA,
-    "tool_info",
   );
 }
 
@@ -168,7 +168,6 @@ export async function explainConcept(
       `keyPoints (3-6 concise bullet strings), sources (the URLs from the research), ` +
       `category (best fit), tags (3-6 lowercase keywords).`,
     NOTE_SCHEMA,
-    "concept_info",
   );
 }
 
