@@ -1,0 +1,46 @@
+// Prisma schema for "My AI World"
+// Two core entities: Tool (AI tools you discover) and Note (concepts/learnings).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Tool {
+  id        String   @id @default(cuid())
+  name      String
+  url       String?
+  rawInput  String // exactly what the user typed when adding
+  summary   String? // AI one-liner
+  details   String? // AI longer write-up
+  category  String   @default("Other")
+  tags      String[] @default([])
+  userNote  String? // the user's own remark
+  status    String   @default("ready") // processing | ready | failed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([createdAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  userNotes String? // the user's own writing (markdown)
+  aiSummary String? // internet-sourced explainer (markdown)
+  keyPoints String[] @default([])
+  sources   String[] @default([]) // URLs Claude used
+  category  String   @default("Other")
+  tags      String[] @default([])
+  status    String   @default("ready") // processing | ready | failed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
