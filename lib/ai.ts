@@ -154,10 +154,17 @@ export async function explainConcept(
   title: string,
   userNotes?: string,
 ): Promise<EnrichedNote | null> {
+  // Feed the user's notes into the SEARCH step so research is guided by both the
+  // concept and the angle they care about — much better for niche/personal topics.
+  const notesForResearch = userNotes
+    ? `\nThe user's own notes describe the specific angle they care about — use them to focus your web searches:\n"${userNotes}"`
+    : "";
+
   const findings = await research(
-    `Research and explain this concept concisely: "${title}".\n` +
-      `Use web search for authoritative, current info. In under 120 words cover what it is, ` +
-      `why it matters, and the key points. End with a line "SOURCES:" listing the URLs used.`,
+    `Research and explain this concept concisely: "${title}".${notesForResearch}\n` +
+      `Use web search for authoritative, current info, prioritizing what's most relevant to the user's angle above. ` +
+      `In under 120 words cover what it is, why it matters, and the key points. ` +
+      `End with a line "SOURCES:" listing the URLs used.`,
   );
 
   const notesContext = userNotes
